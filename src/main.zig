@@ -47,11 +47,13 @@ const GameState = struct {
     phase: GamePhase,
     picture: JigsawPicture,
     pieces: []Piece,
+    draggingPieceIndex: ?usize,
 };
 var state = GameState{
     .phase = .initial,
     .picture = undefined,
     .pieces = &[_]Piece{},
+    .draggingPieceIndex = null,
 };
 
 pub fn init(ctx: jok.Context) !void {
@@ -126,7 +128,33 @@ pub fn event(ctx: jok.Context, e: jok.Event) !void {
                 else => {},
             }
         },
-        .playing => {},
+        .playing => {
+            switch (e) {
+                .mouse_button_down => |m| {
+                    if (state.draggingPieceIndex == null) {
+                        if (findPieceIndexAt(m.pos)) |index| {
+                            state.draggingPieceIndex = index;
+                            movePieceCenterTo(index, m.pos);
+
+                            // ドラッグ中のピースは一番上に描画されるようにする
+                            state.pieces[index].picture.removeSelf();
+                            try scene.root.addChild(state.pieces[index].picture);
+                        }
+                    }
+                },
+                .mouse_motion => |m| {
+                    if (state.draggingPieceIndex) |index| {
+                        movePieceCenterTo(index, m.pos);
+                    }
+                },
+                .mouse_button_up => {
+                    if (state.draggingPieceIndex != null) {
+                        state.draggingPieceIndex = null;
+                    }
+                },
+                else => {},
+            }
+        },
     }
 }
 
@@ -138,6 +166,30 @@ fn shufflePieces(ctx: jok.Context) void {
             .y = @floatFromInt(rng.random().intRangeAtMost(u32, 0, ctx.window().getSize().height - state.picture.pieceHeight)),
         };
     }
+}
+
+fn findPieceIndexAt(pos: jok.Point) ?usize {
+    var i = state.pieces.len;
+    while (i > 0) {
+        i -= 1;
+        var rect = jok.Rectangle{
+            .x = state.pieces[i].currentPos.x,
+            .y = state.pieces[i].currentPos.y,
+            .width = @floatFromInt(state.picture.pieceWidth),
+            .height = @floatFromInt(state.picture.pieceHeight),
+        };
+        if (rect.containsPoint(pos)) {
+            return i;
+        }
+    }
+    return null;
+}
+
+fn movePieceCenterTo(pieceIndex: usize, pos: jok.Point) void {
+    state.pieces[pieceIndex].currentPos = .{
+        .x = pos.x - @as(f32, @floatFromInt(state.picture.pieceWidth)) / 2.0,
+        .y = pos.y - @as(f32, @floatFromInt(state.picture.pieceHeight)) / 2.0,
+    };
 }
 
 pub fn update(ctx: jok.Context) !void {
