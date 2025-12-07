@@ -18,9 +18,31 @@ const JigsawPicture = struct {
     name: [*:0]const u8,
     rows: u32,
     cols: u32,
+    pieceWidth: u32,
+    pieceHeight: u32,
 };
 const pictures = [_]JigsawPicture{
-    .{ .name = "images/programming_master", .rows = 8, .cols = 8 },
+    .{
+        .name = "images/programming_master",
+        .rows = 8,
+        .cols = 8,
+        .pieceWidth = 128,
+        .pieceHeight = 70,
+    },
+};
+
+// パズルのピース
+const Piece = struct {
+    picture: *j2d.Scene.Object,
+    correctPos: jok.Point,
+};
+
+// ゲームの状態
+const GameState = struct {
+    pieces: []Piece,
+};
+var state = GameState{
+    .pieces = &[_]Piece{},
 };
 
 pub fn init(ctx: jok.Context) !void {
@@ -32,10 +54,10 @@ pub fn init(ctx: jok.Context) !void {
 
     // パズル画像からランダムなものを読み込む
     rng = std.Random.DefaultPrng.init(@intCast(std.time.milliTimestamp()));
-    const pic = pictures[rng.random().uintLessThan(usize, pictures.len)];
+    const puzzlePic = pictures[rng.random().uintLessThan(usize, pictures.len)];
     sheet = try j2d.SpriteSheet.fromPicturesInDir(
         ctx,
-        pic.name,
+        puzzlePic.name,
         2560.0,
         1920.0,
         .{},
@@ -43,6 +65,41 @@ pub fn init(ctx: jok.Context) !void {
 
     batchpool = try @TypeOf(batchpool).init(ctx);
     scene = try j2d.Scene.create(ctx.allocator());
+
+    const margin: u32 = 64;
+
+    // 各ピースのスプライトから2Dオブジェクトを作り、正解の位置に移動する。
+    state.pieces = try ctx.allocator().alloc(Piece, puzzlePic.rows * puzzlePic.cols);
+    var r: u32 = 0;
+    while (r < puzzlePic.rows) : (r += 1) {
+        var c: u32 = 0;
+        while (c < puzzlePic.cols) : (c += 1) {
+            const filename = try std.fmt.allocPrint(ctx.allocator(), "r{d:0>2}_c{d:0>2}", .{ r, c });
+            defer ctx.allocator().free(filename);
+            const pos = jok.Point{
+                .x = @floatFromInt(margin + c * puzzlePic.pieceWidth),
+                .y = @floatFromInt(margin + r * puzzlePic.pieceHeight),
+            };
+            const obj = try j2d.Scene.Object.create(ctx.allocator(), .{
+                .sprite = sheet.getSpriteByName(filename).?,
+                .render_opt = .{ .pos = pos },
+            }, null);
+            const piece = Piece{
+                .picture = obj,
+                .correctPos = pos,
+            };
+            const idx = r * puzzlePic.cols + c;
+            state.pieces[idx] = piece;
+            try scene.root.addChild(piece.picture);
+        }
+    }
+
+    // パズル画像のサイズに合わせてウィンドウサイズを変更
+    const window = ctx.window();
+    try window.setSize(.{
+        .width = margin * 2 + puzzlePic.pieceWidth * puzzlePic.cols,
+        .height = margin * 2 + puzzlePic.pieceHeight * puzzlePic.rows,
+    });
 }
 
 pub fn event(ctx: jok.Context, e: jok.Event) !void {
@@ -55,12 +112,15 @@ pub fn update(ctx: jok.Context) !void {
 }
 
 pub fn draw(ctx: jok.Context) !void {
-    _ = ctx;
+    try ctx.renderer().clear(.rgb(128, 128, 128));
+    var b = try batchpool.new(.{ .depth_sort = .back_to_forth });
+    defer b.submit();
+    try b.scene(scene);
 }
 
 pub fn quit(ctx: jok.Context) void {
-    _ = ctx;
     sheet.destroy();
     batchpool.deinit();
     scene.destroy(true);
+    ctx.allocator().free(state.pieces);
 }
