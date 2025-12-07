@@ -34,19 +34,29 @@ const pictures = [_]JigsawPicture{
 // パズルのピース
 const Piece = struct {
     picture: *j2d.Scene.Object,
+    currentPos: jok.Point,
     correctPos: jok.Point,
 };
 
 // ゲームの状態
+const GamePhase = enum {
+    initial,
+    playing,
+};
 const GameState = struct {
+    phase: GamePhase,
+    picture: JigsawPicture,
     pieces: []Piece,
 };
 var state = GameState{
+    .phase = .initial,
+    .picture = undefined,
     .pieces = &[_]Piece{},
 };
 
 pub fn init(ctx: jok.Context) !void {
     std.log.info("game init", .{});
+    try ctx.window().setTitle("じぐじぐじぐそー: クリックでゲームを開始します");
 
     if (!builtin.cpu.arch.isWasm()) {
         try physfs.mount("assets", "", true);
@@ -62,6 +72,7 @@ pub fn init(ctx: jok.Context) !void {
         1920.0,
         .{},
     );
+    state.picture = puzzlePic;
 
     batchpool = try @TypeOf(batchpool).init(ctx);
     scene = try j2d.Scene.create(ctx.allocator());
@@ -86,6 +97,7 @@ pub fn init(ctx: jok.Context) !void {
             }, null);
             const piece = Piece{
                 .picture = obj,
+                .currentPos = pos,
                 .correctPos = pos,
             };
             const idx = r * puzzlePic.cols + c;
@@ -103,8 +115,29 @@ pub fn init(ctx: jok.Context) !void {
 }
 
 pub fn event(ctx: jok.Context, e: jok.Event) !void {
-    _ = ctx;
-    _ = e;
+    switch (state.phase) {
+        .initial => {
+            switch (e) {
+                .mouse_button_down => {
+                    shufflePieces(ctx);
+                    state.phase = .playing;
+                    try ctx.window().setTitle("じぐじぐじぐそー: ピースをドラッグしてパズルを完成させよう！");
+                },
+                else => {},
+            }
+        },
+        .playing => {},
+    }
+}
+
+fn shufflePieces(ctx: jok.Context) void {
+    var i: u32 = 0;
+    while (i < state.pieces.len) : (i += 1) {
+        state.pieces[i].currentPos = jok.Point{
+            .x = @floatFromInt(rng.random().intRangeAtMost(u32, 0, ctx.window().getSize().width - state.picture.pieceWidth)),
+            .y = @floatFromInt(rng.random().intRangeAtMost(u32, 0, ctx.window().getSize().height - state.picture.pieceHeight)),
+        };
+    }
 }
 
 pub fn update(ctx: jok.Context) !void {
@@ -115,6 +148,11 @@ pub fn draw(ctx: jok.Context) !void {
     try ctx.renderer().clear(.rgb(128, 128, 128));
     var b = try batchpool.new(.{ .depth_sort = .back_to_forth });
     defer b.submit();
+    for (state.pieces) |p| {
+        p.picture.setRenderOptions(.{
+            .pos = p.currentPos,
+        });
+    }
     try b.scene(scene);
 }
 
