@@ -31,6 +31,16 @@ zig build run
 ./zig-out/bin/jigzigjigsaw
 ```
 
+ブラウザで動作するWASMビルドと起動ができます。
+
+```sh
+zig build run -Dtarget=wasm32-emscripten -Doptimize=ReleaseFast
+```
+
+ビルドされた実行ファイルは `./zig-out/web/` に出力されるので、GitHub Pagesで公開できます。
+
+https://<username>.github.io/<repository>/zig-out/web/jigzigjigsaw.html
+
 ## 動作環境
 
 以下の環境でビルドと動作を確認しました。たぶんIntel MacとかWindowsとかLinuxとかでも動くと思います
