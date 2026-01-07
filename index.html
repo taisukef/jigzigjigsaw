@@ -3,14 +3,19 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>じぐじぐじぐそー: クリックでゲームを開始します</title>
+  <title>じぐじぐじぐそー</title>
   <style>
     html, body { margin: 0; height: 100%; background: #808080; }
     canvas { display: block; margin: 0 auto; touch-action: none; }
+    #div_title { text-align: center; margin: 1em; background-color: white; }
+    #div_credit a { display: block; text-align: center; margin: 1em; color: white !important; }
   </style>
 </head>
 <body>
+
+<div id="div_title">じぐじぐじぐそー: クリックでゲームを開始します</div>
 <canvas id="cv"></canvas>
+<div id="div_credit"><a href="https://github.com/dahhonda/jigzigjigsaw">src on GitHub</a></div>
 
 <script type="module">
 /**
@@ -61,7 +66,7 @@ function randInt(min, maxInclusive) {
   return Math.floor(Math.random() * (maxInclusive - min + 1)) + min;
 }
 
-function setTitle(text) { document.title = text; }
+function setTitle(text) { div_title.textContent = text; }
 
 function resizeCanvasToPuzzle(pic) {
   cv.width = margin * 2 + pic.pieceWidth * pic.cols;
