@@ -39,7 +39,7 @@ zig build run -Dtarget=wasm32-emscripten -Doptimize=ReleaseFast
 
 ビルドされた実行ファイルは `./zig-out/web/` に出力されるので、GitHub Pagesで公開できます。
 
-https://<username>.github.io/<repository>/zig-out/web/jigzigjigsaw.html
+https://{username}.github.io/{repository}/zig-out/web/jigzigjigsaw.html
 
 ## 動作環境
 
@@ -49,3 +49,20 @@ https://<username>.github.io/<repository>/zig-out/web/jigzigjigsaw.html
     - チップ: Apple M1 Pro
     - メモリ: 16 GB
     - macOS: Sequoia 15.6.1
+
+
+## 今すぐプレイ
+
+弊社創業者の福野([@taisukef](https://github.com/taisukef))さんが、WASMビルド対応とGitHub Pagesでの公開をしてくださいました。
+下記のURLからプレイできます！
+
+https://taisukef.github.io/jigzigjigsaw/zig-out/web/jigzigjigsaw.html
+
+
+福野さんありがとうございました！
+
+## おまけ JavaScript版
+
+- Zig版を元に生成・調整した、JavaScript版 [index.html](index.html)、下記URLからプレイできます！
+
+https://taisukef.github.io/jigzigjigsaw/
