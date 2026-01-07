@@ -11,6 +11,7 @@ var rng: std.Random.DefaultPrng = undefined; // 乱数生成器
 var batchpool: j2d.BatchPool(64, false) = undefined; // 描画を高速化するのに使うっぽい
 var sheet: *j2d.SpriteSheet = undefined; // スプライトシート。使う画像をあらかじめ読み込んでおくのに使うっぽい
 var scene: *j2d.Scene = undefined; // 描画先
+var difPos: jok.Point = jok.Point{ .x = 0, .y = 0}; // ドラッグ時のズレ
 
 // ジグソーパズルの正解画像
 const JigsawPicture = struct {
@@ -160,7 +161,11 @@ pub fn event(ctx: jok.Context, e: jok.Event) !void {
                             }
 
                             state.dragging_piece_index = index;
-                            movePieceCenterTo(index, m.pos);
+                            difPos = jok.Point{
+                                .x = m.pos.x - state.pieces[index].current_pos.x,
+                                .y = m.pos.y - state.pieces[index].current_pos.y,
+                            };
+                            movePieceTo(index, m.pos);
 
                             // ドラッグ中のピースは一番上に描画されるようにする
                             state.pieces[index].picture.removeSelf();
@@ -170,7 +175,7 @@ pub fn event(ctx: jok.Context, e: jok.Event) !void {
                 },
                 .mouse_motion => |m| {
                     if (state.dragging_piece_index) |index| {
-                        movePieceCenterTo(index, m.pos);
+                        movePieceTo(index, m.pos);
                     }
                 },
                 .mouse_button_up => {
@@ -233,10 +238,10 @@ fn findPieceIndexAt(pos: jok.Point) ?usize {
     return null;
 }
 
-fn movePieceCenterTo(piece_index: usize, pos: jok.Point) void {
+fn movePieceTo(piece_index: usize, pos: jok.Point) void {
     state.pieces[piece_index].current_pos = .{
-        .x = pos.x - @as(f32, @floatFromInt(state.picture.piece_width)) / 2.0,
-        .y = pos.y - @as(f32, @floatFromInt(state.picture.piece_height)) / 2.0,
+        .x = pos.x - difPos.x,
+        .y = pos.y - difPos.y,
     };
 }
 
