@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>じぐじぐじぐそー</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #808080; }
+    canvas { display: block; margin: 0 auto; touch-action: none; }
+    #div_title { text-align: center; margin: 1em; background-color: white; }
+    #div_credit a { display: block; text-align: center; margin: 1em; color: white !important; }
+  </style>
+</head>
+<body>
+
+<div id="div_title">じぐじぐじぐそー: クリックでゲームを開始します</div>
+<canvas id="cv"></canvas>
+<div id="div_credit"><a href="https://github.com/dahhonda/jigzigjigsaw">src on GitHub</a></div>
+
+<script type="module">
+/**
+ * Zig(jok/j2d)版のロジックを、Canvas2D に移植したもの。
+ * - クリックで開始（initial/completed -> playing）
+ * - ピースをドラッグ
+ * - 離したとき正解位置から16px以内ならスナップして固定
+ * - 残り枚数を title に表示、0なら完成
+ * - 正解ピースは黄色っぽい半透明で表示（completed時は白）
+ */
+
+const pictures = [{
+  name: "assets/images/spotch_onboarding",
+  rows: 5,
+  cols: 5,
+  pieceWidth: 144,
+  pieceHeight: 128,
+  ext: "png", // ここ変えれば jpg でもOK
+}];
+
+const margin = 64;
+const snapDistance = 16;
+
+const Phase = {
+  initial: "initial",
+  playing: "playing",
+  completed: "completed",
+};
+
+const state = {
+  phase: Phase.initial,
+  picture: null,
+  pieces: [],
+  draggingIndex: null,
+  difPos: { x: 0, y: 0 },
+};
+
+const cv = document.getElementById("cv");
+const ctx2d = cv.getContext("2d");
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+function dist(a, b) {
+  const dx = a.x - b.x, dy = a.y - b.y;
+  return Math.hypot(dx, dy);
+}
+function randInt(min, maxInclusive) {
+  // [min, max]
+  return Math.floor(Math.random() * (maxInclusive - min + 1)) + min;
+}
+
+function setTitle(text) { div_title.textContent = text; }
+
+function resizeCanvasToPuzzle(pic) {
+  cv.width = margin * 2 + pic.pieceWidth * pic.cols;
+  cv.height = margin * 2 + pic.pieceHeight * pic.rows;
+}
+
+function pointerPos(e) {
+  const r = cv.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (cv.width / r.width),
+    y: (e.clientY - r.top) * (cv.height / r.height),
+  };
+}
+
+async function loadImage(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.decoding = "async";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load: " + url));
+    img.src = url;
+  });
+}
+
+async function loadPieces(pic) {
+  state.picture = pic;
+  state.pieces = [];
+
+  // 画像を全部読む（r00_c00 ...）
+  const promises = [];
+  for (let r = 0; r < pic.rows; r++) {
+    for (let c = 0; c < pic.cols; c++) {
+      const filename = `r${pad2(r)}_c${pad2(c)}`;
+      const url = `${pic.name}/${filename}.${pic.ext}`;
+      promises.push(loadImage(url).then(img => ({ r, c, img })));
+    }
+  }
+  const imgs = await Promise.all(promises);
+
+  // Zig版と同様に正解位置に並べて scene に積む（配列末尾が最前面）
+  for (const { r, c, img } of imgs) {
+    const correct = {
+      x: margin + c * pic.pieceWidth,
+      y: margin + r * pic.pieceHeight,
+    };
+    state.pieces.push({
+      img,
+      current: { ...correct },
+      correct,
+      isCorrect: false,
+      w: pic.pieceWidth,
+      h: pic.pieceHeight,
+    });
+  }
+}
+
+function shufflePieces() {
+  const pic = state.picture;
+  for (let i = 0; i < state.pieces.length; i++) {
+    state.pieces[i].current = {
+      x: randInt(0, cv.width - pic.pieceWidth),
+      y: randInt(0, cv.height - pic.pieceHeight),
+    };
+    state.pieces[i].isCorrect = false;
+  }
+}
+
+function findPieceIndexAt(pos) {
+  // Zig版は「後ろから」探索（描画が上のもの優先）＋正解ピースは除外
+  for (let i = state.pieces.length - 1; i >= 0; i--) {
+    const p = state.pieces[i];
+    if (p.isCorrect) continue;
+    if (pos.x >= p.current.x && pos.x <= p.current.x + p.w &&
+        pos.y >= p.current.y && pos.y <= p.current.y + p.h) {
+      return i;
+    }
+  }
+  return null;
+}
+
+function movePieceTo(index, pos) {
+  const p = state.pieces[index];
+  p.current = {
+    x: pos.x - state.difPos.x,
+    y: pos.y - state.difPos.y,
+  };
+}
+
+function getIncorrectPieceCount() {
+  let count = 0;
+  for (const p of state.pieces) if (!p.isCorrect) count++;
+  return count;
+}
+
+function bringToFront(index) {
+  // Zig版: removeSelf() -> addChild() で最前面へ
+  const [p] = state.pieces.splice(index, 1);
+  state.pieces.push(p);
+  return state.pieces.length - 1; // 新しいindex
+}
+
+// ---- input ----
+cv.addEventListener("pointerdown", (e) => {
+  cv.setPointerCapture(e.pointerId);
+  const pos = pointerPos(e);
+
+  if (state.phase === Phase.initial || state.phase === Phase.completed) {
+    shufflePieces();
+    state.phase = Phase.playing;
+    setTitle("じぐじぐじぐそー: ピースをドラッグしてパズルを完成させよう！");
+    return;
+  }
+
+  // playing
+  if (state.draggingIndex != null) return;
+
+  const idx = findPieceIndexAt(pos);
+  if (idx == null) return;
+
+  const p = state.pieces[idx];
+  state.difPos = { x: pos.x - p.current.x, y: pos.y - p.current.y };
+
+  // 掴んだ瞬間に移動 & 最前面へ
+  movePieceTo(idx, pos);
+  const newIdx = bringToFront(idx);
+  state.draggingIndex = newIdx;
+});
+
+cv.addEventListener("pointermove", (e) => {
+  if (state.phase !== Phase.playing) return;
+  if (state.draggingIndex == null) return;
+  const pos = pointerPos(e);
+  movePieceTo(state.draggingIndex, pos);
+});
+
+cv.addEventListener("pointerup", () => {
+  if (state.phase !== Phase.playing) return;
+  if (state.draggingIndex == null) return;
+
+  const index = state.draggingIndex;
+  const p = state.pieces[index];
+
+  if (dist(p.current, p.correct) <= snapDistance) {
+    p.current = { ...p.correct };
+    p.isCorrect = true;
+  }
+
+  const remain = getIncorrectPieceCount();
+  if (remain === 0) {
+    setTitle("じぐじぐじぐそー: 完成おめでとう！");
+    state.phase = Phase.completed;
+  } else {
+    setTitle(`じぐじぐじぐそー: 完成まで残り ${remain} 枚！`);
+  }
+
+  state.draggingIndex = null;
+});
+
+// ---- render ----
+function drawGrid() {
+  const pic = state.picture;
+  ctx2d.save();
+  ctx2d.globalAlpha = 1.0;
+  ctx2d.fillStyle = "rgb(240,240,240)";
+  for (const p of state.pieces) {
+    // Zig版は pieces から correct_pos を使って全マス描画してるので、ここもpiece分まわしてOK
+    ctx2d.fillRect(p.correct.x, p.correct.y, pic.pieceWidth - 1, pic.pieceHeight - 1);
+  }
+  ctx2d.restore();
+}
+
+function drawPieces() {
+  // 画像描画
+  // Zig版: completed でない & is_correct なら黄色っぽい tint
+  // Canvas2Dの「tint」相当は簡易的に、上から黄色半透明Rectを重ねる
+  for (const p of state.pieces) {
+    if (state.phase !== Phase.completed && p.isCorrect) {
+      ctx2d.save();
+      ctx2d.drawImage(p.img, p.current.x, p.current.y, p.w, p.h);
+      ctx2d.globalAlpha = 0.3;
+      ctx2d.fillStyle = "yellow";
+      ctx2d.fillRect(p.current.x, p.current.y, p.w, p.h);
+      ctx2d.restore();
+    }
+  }
+  for (const p of state.pieces) {
+    if (!(state.phase !== Phase.completed && p.isCorrect)) {
+      ctx2d.drawImage(p.img, p.current.x, p.current.y, p.w, p.h);
+    }
+  }
+}
+
+function frame() {
+  // 背景（Zig版: clear rgb(128,128,128)）
+  ctx2d.setTransform(1,0,0,1,0,0);
+  ctx2d.clearRect(0, 0, cv.width, cv.height);
+  ctx2d.fillStyle = "rgb(128,128,128)";
+  ctx2d.fillRect(0, 0, cv.width, cv.height);
+
+  if (state.picture) {
+    drawGrid();
+    drawPieces();
+  }
+
+  requestAnimationFrame(frame);
+}
+
+// ---- init ----
+(async function main() {
+  setTitle("じぐじぐじぐそー: クリックでゲームを開始します");
+  const pic = pictures[Math.floor(Math.random() * pictures.length)];
+
+  resizeCanvasToPuzzle(pic);
+
+  try {
+    await loadPieces(pic);
+  } catch (err) {
+    console.error(err);
+    setTitle("画像が読み込めませんでした（コンソールを見てね）");
+  }
+
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
