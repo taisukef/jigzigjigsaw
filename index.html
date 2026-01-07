@@ -228,7 +228,7 @@ function drawGrid() {
   ctx2d.fillStyle = "rgb(240,240,240)";
   for (const p of state.pieces) {
     // Zig版は pieces から correct_pos を使って全マス描画してるので、ここもpiece分まわしてOK
-    ctx2d.fillRect(p.correct.x, p.correct.y, pic.pieceWidth, pic.pieceHeight);
+    ctx2d.fillRect(p.correct.x, p.correct.y, pic.pieceWidth - 1, pic.pieceHeight - 1);
   }
   ctx2d.restore();
 }
