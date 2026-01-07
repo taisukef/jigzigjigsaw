@@ -234,22 +234,23 @@ function drawGrid() {
 }
 
 function drawPieces() {
+  // 画像描画
+  // Zig版: completed でない & is_correct なら黄色っぽい tint
+  // Canvas2Dの「tint」相当は簡易的に、上から黄色半透明Rectを重ねる
   for (const p of state.pieces) {
-    // 画像描画
-    ctx2d.save();
-
-    // Zig版: completed でない & is_correct なら黄色っぽい tint
-    // Canvas2Dの「tint」相当は簡易的に、上から黄色半透明Rectを重ねる
-    ctx2d.globalAlpha = 1.0;
-    ctx2d.drawImage(p.img, p.current.x, p.current.y, p.w, p.h);
-
     if (state.phase !== Phase.completed && p.isCorrect) {
-      ctx2d.globalAlpha = 0.5;
+      ctx2d.save();
+      ctx2d.drawImage(p.img, p.current.x, p.current.y, p.w, p.h);
+      ctx2d.globalAlpha = 0.3;
       ctx2d.fillStyle = "yellow";
       ctx2d.fillRect(p.current.x, p.current.y, p.w, p.h);
+      ctx2d.restore();
     }
-
-    ctx2d.restore();
+  }
+  for (const p of state.pieces) {
+    if (!(state.phase !== Phase.completed && p.isCorrect)) {
+      ctx2d.drawImage(p.img, p.current.x, p.current.y, p.w, p.h);
+    }
   }
 }
 
