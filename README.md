@@ -61,3 +61,8 @@ https://taisukef.github.io/jigzigjigsaw/zig-out/web/jigzigjigsaw.html
 
 福野さんありがとうございました！
 
+## おまけ JavaScript版
+
+- Zig版を元に生成・調整した、JavaScript版 [index.html](index.html)、下記URLからプレイできます！
+
+https://taisukef.github.io/jigzigjigsaw/
