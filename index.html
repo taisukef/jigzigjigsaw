@@ -8,14 +8,18 @@
     html, body { margin: 0; height: 100%; background: #808080; }
     canvas { display: block; margin: 0 auto; touch-action: none; }
     #div_title { text-align: center; margin: 1em; background-color: white; }
-    #div_credit a { display: block; text-align: center; margin: 1em; color: white !important; }
+    #div_credit { display: block; text-align: center; margin: 1em; color: white; }
+    #div_credit a { color: white !important; }
   </style>
 </head>
 <body>
 
 <div id="div_title">じぐじぐじぐそー: クリックでゲームを開始します</div>
 <canvas id="cv"></canvas>
-<div id="div_credit"><a href="https://github.com/dahhonda/jigzigjigsaw">src on GitHub</a></div>
+<div id="div_credit">
+  photo: <a href=https://find47.jp/ja/i/NghAs>FIND47 福井県 禅 by F_Photo</a><br>
+  <a href="https://github.com/dahhonda/jigzigjigsaw">src on GitHub</a><br>
+</div>
 
 <script type="module">
 /**
@@ -27,14 +31,16 @@
  * - 正解ピースは黄色っぽい半透明で表示（completed時は白）
  */
 
-const pictures = [{
-  name: "assets/images/spotch_onboarding",
-  rows: 5,
-  cols: 5,
-  pieceWidth: 144,
-  pieceHeight: 128,
-  ext: "png", // ここ変えれば jpg でもOK
-}];
+const pictures = [
+  {
+    name: "assets/images/find47_3849",
+    rows: 5,
+    cols: 5,
+    pieceWidth: 144,
+    pieceHeight: 81,
+    ext: "jpg", // ここ変えれば jpg でもOK
+  },
+];
 
 const margin = 64;
 const snapDistance = 16;
