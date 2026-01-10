@@ -1,4 +1,4 @@
-import { ImageDataUtil } from "./ImageDataUtil.js";
+import { ImageDataUtil } from "https://code4fukui.github.io/ImageDataUtil/ImageDataUtil.js";
 import { EXT } from "https://code4fukui.github.io/EXT/EXT.js";
 
 /*
